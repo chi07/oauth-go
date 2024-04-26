@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 )
 
@@ -56,6 +57,7 @@ func (ga *GoogleAuth) GetGoogleOauthToken(code string) (*GoogleOauthToken, error
 	query := values.Encode()
 	req, err := http.NewRequest("POST", rootURL, bytes.NewBufferString(query))
 	if err != nil {
+		log.Error().Err(err).Msg("could not create request")
 		return nil, err
 	}
 
@@ -66,10 +68,12 @@ func (ga *GoogleAuth) GetGoogleOauthToken(code string) (*GoogleOauthToken, error
 
 	res, err := client.Do(req)
 	if err != nil {
+		log.Error().Str("GetGoogleOauthToken().client.Do(): ", err.Error()).Msg("could not make request")
 		return nil, err
 	}
 
 	if res.StatusCode != http.StatusOK {
+		log.Error().Err(err).Msg("could not retrieve token: ")
 		return nil, errors.New("could not retrieve token")
 	}
 
@@ -80,7 +84,8 @@ func (ga *GoogleAuth) GetGoogleOauthToken(code string) (*GoogleOauthToken, error
 
 	var GoogleOauthTokenRes map[string]interface{}
 
-	if err := json.Unmarshal(resBody, &GoogleOauthTokenRes); err != nil {
+	if err = json.Unmarshal(resBody, &GoogleOauthTokenRes); err != nil {
+		log.Error().Str("GetGoogleOauthToken.Unmarsha(): ", err.Error()).Msg("could not unmarshal response")
 		return nil, err
 	}
 
@@ -93,9 +98,9 @@ func (ga *GoogleAuth) GetGoogleOauthToken(code string) (*GoogleOauthToken, error
 }
 
 func (ga *GoogleAuth) GetGoogleUser(accessToken string, tokenID string) (*GoogleUser, error) {
-	rootUrl := fmt.Sprintf("https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=%s", accessToken)
+	infoURL := fmt.Sprintf("https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=%s", accessToken)
 
-	req, err := http.NewRequest("GET", rootUrl, nil)
+	req, err := http.NewRequest("GET", infoURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +113,7 @@ func (ga *GoogleAuth) GetGoogleUser(accessToken string, tokenID string) (*Google
 
 	res, err := client.Do(req)
 	if err != nil {
+		log.Error().Err(err).Str("GetGoogleUser().client.Do(): ", err.Error()).Msg("could not make request")
 		return nil, err
 	}
 
@@ -123,6 +129,7 @@ func (ga *GoogleAuth) GetGoogleUser(accessToken string, tokenID string) (*Google
 	var GoogleUserRes map[string]interface{}
 
 	if err := json.Unmarshal(resBody, &GoogleUserRes); err != nil {
+		log.Error().Err(err).Str("GetGoogleUser().json.Unmarshal(): ", err.Error()).Msg("could not unmarshal response")
 		return nil, err
 	}
 
@@ -132,8 +139,8 @@ func (ga *GoogleAuth) GetGoogleUser(accessToken string, tokenID string) (*Google
 		VerifiedEmail: GoogleUserRes["verified_email"].(bool),
 		Name:          GoogleUserRes["name"].(string),
 		GivenName:     GoogleUserRes["given_name"].(string),
+		FamilyName:    GoogleUserRes["family_name"].(string),
 		Picture:       GoogleUserRes["picture"].(string),
-		Locale:        GoogleUserRes["locale"].(string),
 	}
 
 	return userBody, nil
